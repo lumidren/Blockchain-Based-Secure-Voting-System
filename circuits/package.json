@@ -1,0 +1,28 @@
+{
+  "name": "@verivote/circuits",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Circom circuits for VeriVote ballots (membership + nullifier + one-hot ElGamal), build and ceremony scripts",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "ptau": "bash scripts/ptau.sh",
+    "ceremony": "bash scripts/ceremony.sh",
+    "dev-keys": "bash scripts/dev-keys.sh",
+    "constraints": "node scripts/constraint-report.mjs",
+    "constraints:update": "node scripts/constraint-report.mjs --update",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@verivote/crypto-core": "workspace:*",
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
