@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Phase-1 Powers of Tau for local development and CI.
 # Production deployments MUST use the Perpetual Powers of Tau (Hermez) file instead, e.g.
-#   PTAU_URL=https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_17.ptau scripts/ptau.sh 17
+#   PTAU_URL=https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_16.ptau scripts/ptau.sh 16
 # (expected sha256 recorded in docs/RUNBOOK.md §4).
-# Usage: scripts/ptau.sh [power]   (default 17 — enough for ballot_k8)
+# Usage: scripts/ptau.sh [power]   (default 16 — enough for ballot_k8 at 30k constraints)
 set -euo pipefail
 cd "$(dirname "$0")/.."
-POWER="${1:-17}"
+POWER="${1:-16}"
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
 SNARKJS="pnpm exec snarkjs"
 mkdir -p ptau

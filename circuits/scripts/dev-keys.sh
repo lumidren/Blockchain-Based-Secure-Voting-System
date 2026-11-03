@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
 SNARKJS="pnpm exec snarkjs"
-POWER="${POWER:-17}"
+POWER="${POWER:-16}"
 NAMES=("$@")
 if [ ${#NAMES[@]} -eq 0 ]; then NAMES=(ballot_k4 ballot_k8); fi
 bash scripts/ptau.sh "$POWER"

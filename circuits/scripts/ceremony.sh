@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
 SNARKJS="pnpm exec snarkjs"
-POWER="${POWER:-17}"
+POWER="${POWER:-16}"
 PTAU="${PTAU:-ptau/pot${POWER}_final.ptau}"
 cmd="${1:-}"
 circuit="${2:-}"
