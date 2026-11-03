@@ -1,0 +1,6 @@
+packages:
+  - "packages/*"
+  - "circuits"
+  - "services/*"
+  - "tools/*"
+  - "apps/*"

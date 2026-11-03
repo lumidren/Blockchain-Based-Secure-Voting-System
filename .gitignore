@@ -1,0 +1,41 @@
+# deps
+node_modules/
+.pnpm-store/
+# builds
+dist/
+build/
+out/
+.next/
+coverage/
+lcov.info
+*.tsbuildinfo
+# foundry
+contracts/cache/
+contracts/out/
+contracts/broadcast/**/dry-run/
+# circuits (large generated artifacts; regenerate with `pnpm circuits:build`)
+circuits/build/
+circuits/ptau/
+!circuits/build/.gitkeep
+# env / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.share
+*.share.json
+# python
+.venv/
+__pycache__/
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+# test artifacts
+playwright-report/
+test-results/
+load-test/results/*.jsonl
+# terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate*
