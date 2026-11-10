@@ -40,3 +40,6 @@ load-test/results/*.jsonl
 infra/terraform/.terraform/
 infra/terraform/*.tfstate*
 contracts/slither-report.json
+
+# local chain manifests are regenerated on every Anvil run
+contracts/deployments/local.json
