@@ -20,7 +20,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "vectors": "tsx scripts/gen-vectors.ts"
+    "vectors": "tsx scripts/gen-vectors.ts",
+    "fixtures": "tsx scripts/gen-contract-fixtures.ts"
   },
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
