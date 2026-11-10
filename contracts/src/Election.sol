@@ -72,6 +72,9 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
     error WrongResultsLength();
     error SignalOutOfField();
 
+    /// @dev Groth16 verification costs ≈ 210k (K=4) / 310k (K=8) gas; 600k leaves ample headroom.
+    uint256 public constant VERIFIER_GAS_LIMIT = 600_000;
+
     uint256 public electionId;
     IVeriVoteFactory public factory;
     IVoterRegistry public registry;
@@ -348,7 +351,8 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
     {
         bytes memory data =
             abi.encodePacked(verifierSelector, a[0], a[1], b[0][0], b[0][1], b[1][0], b[1][1], c[0], c[1], signals);
-        (bool ok, bytes memory ret) = verifier.staticcall(data);
+        // Gas is capped: a malformed point makes the pairing precompile fail and consume all gas it is given.
+        (bool ok, bytes memory ret) = verifier.staticcall{gas: VERIFIER_GAS_LIMIT}(data);
         return ok && ret.length == 32 && abi.decode(ret, (bool));
     }
 
