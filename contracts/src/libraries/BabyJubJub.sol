@@ -103,20 +103,7 @@ library BabyJubJub {
 
     /// @dev r = r + (qx, qy) where q is affine (Z = 1).
     function addAffineInPlace(ProjectivePoint memory r, uint256 qx, uint256 qy) internal pure {
-        uint256 x1 = r.X;
-        uint256 y1 = r.Y;
-        uint256 z1 = r.Z;
-        uint256 b = mulmod(z1, z1, P);
-        uint256 c = mulmod(x1, qx, P);
-        uint256 d = mulmod(y1, qy, P);
-        uint256 e = mulmod(mulmod(D, c, P), d, P);
-        uint256 f = addmod(b, P - e, P);
-        uint256 g = addmod(b, e, P);
-        uint256 t = mulmod(addmod(x1, y1, P), addmod(qx, qy, P), P);
-        t = addmod(addmod(t, P - c, P), P - d, P);
-        r.X = mulmod(mulmod(z1, f, P), t, P);
-        r.Y = mulmod(mulmod(z1, g, P), addmod(d, P - mulmod(A, c, P), P), P);
-        r.Z = mulmod(f, g, P);
+        (r.X, r.Y, r.Z) = _madd(r.X, r.Y, r.Z, qx, qy);
     }
 
     /// @dev r = r + q, both projective.
@@ -137,61 +124,147 @@ library BabyJubJub {
 
     /// @dev r = 2r.
     function doubleInPlace(ProjectivePoint memory r) internal pure {
-        uint256 x1 = r.X;
-        uint256 y1 = r.Y;
-        uint256 s = addmod(x1, y1, P);
-        uint256 b = mulmod(s, s, P);
-        uint256 c = mulmod(x1, x1, P);
-        uint256 d = mulmod(y1, y1, P);
-        uint256 e = mulmod(A, c, P);
-        uint256 f = addmod(e, d, P);
-        uint256 h = mulmod(r.Z, r.Z, P);
-        uint256 j = addmod(f, P - mulmod(2, h, P), P);
-        uint256 bcd = addmod(addmod(b, P - c, P), P - d, P);
-        r.X = mulmod(bcd, j, P);
-        r.Y = mulmod(f, addmod(e, P - d, P), P);
-        r.Z = mulmod(f, j, P);
+        (r.X, r.Y, r.Z) = _dbl(r.X, r.Y, r.Z);
     }
 
-    /// @notice k·p in projective coordinates (double-and-add from the most significant bit).
-    /// @dev Not constant-time; every input is public on-chain anyway.
-    function projMul(Point memory p, uint256 k) internal pure returns (ProjectivePoint memory r) {
-        r = ProjectivePoint(0, 1, 1);
-        if (k == 0 || isIdentity(p)) return r;
-        uint256 bit = 1 << 255;
-        while (bit & k == 0) bit >>= 1;
-        r.X = p.x;
-        r.Y = p.y;
-        bit >>= 1;
-        while (bit != 0) {
-            doubleInPlace(r);
-            if (k & bit != 0) addAffineInPlace(r, p.x, p.y);
-            bit >>= 1;
+    // Stack-based kernels: coordinates never touch memory inside the scalar-multiplication loops.
+
+    /// @dev Projective doubling ("dbl-2008-bbjlp"); inputs are reused as temporaries to stay within the stack.
+    function _dbl(uint256 x1, uint256 y1, uint256 z1) private pure returns (uint256 x3, uint256 y3, uint256 z3) {
+        assembly ("memory-safe") {
+            let c := mulmod(x1, x1, P)
+            let d := mulmod(y1, y1, P)
+            x1 := addmod(x1, y1, P)
+            x1 := addmod(mulmod(x1, x1, P), sub(P, addmod(c, d, P)), P) // B - C - D
+            c := mulmod(A, c, P) // E
+            y1 := addmod(c, d, P) // F
+            z1 := addmod(y1, sub(P, mulmod(2, mulmod(z1, z1, P), P)), P) // J
+            x3 := mulmod(x1, z1, P)
+            y3 := mulmod(y1, addmod(c, sub(P, d), P), P)
+            z3 := mulmod(y1, z1, P)
         }
     }
 
-    /// @notice k1·p1 + k2·p2 with Straus' trick (shared doublings, 4-entry table).
+    /// @dev Mixed addition with an affine point ("madd-2008-bbjlp").
+    function _madd(uint256 x1, uint256 y1, uint256 z1, uint256 qx, uint256 qy)
+        private
+        pure
+        returns (uint256 x3, uint256 y3, uint256 z3)
+    {
+        assembly ("memory-safe") {
+            let c := mulmod(x1, qx, P)
+            let d := mulmod(y1, qy, P)
+            x1 := addmod(mulmod(addmod(x1, y1, P), addmod(qx, qy, P), P), sub(P, addmod(c, d, P)), P)
+            y1 := addmod(d, sub(P, mulmod(A, c, P)), P)
+            d := mulmod(mulmod(D, c, P), d, P) // E
+            c := mulmod(z1, z1, P) // B
+            qx := addmod(c, sub(P, d), P) // F
+            qy := addmod(c, d, P) // G
+            x3 := mulmod(mulmod(z1, qx, P), x1, P)
+            y3 := mulmod(mulmod(z1, qy, P), y1, P)
+            z3 := mulmod(qx, qy, P)
+        }
+    }
+
+    /// @notice k·p in projective coordinates (left-to-right double-and-add).
+    /// @dev Not constant-time; every input is public on-chain anyway. The whole loop runs in one assembly
+    ///      block (same formulas as _dbl/_madd) so no stack frames are created per bit.
+    function projMul(Point memory p, uint256 k) internal pure returns (ProjectivePoint memory) {
+        if (k == 0 || isIdentity(p)) return ProjectivePoint(0, 1, 1);
+        uint256 x;
+        uint256 y;
+        uint256 z;
+        uint256 px = p.x;
+        uint256 py = p.y;
+        assembly ("memory-safe") {
+            let bit := shl(255, 1)
+            for {} iszero(and(bit, k)) {} { bit := shr(1, bit) }
+            x := px
+            y := py
+            z := 1
+            bit := shr(1, bit)
+            for {} bit { bit := shr(1, bit) } {
+                // double
+                {
+                    let c := mulmod(x, x, P)
+                    let d := mulmod(y, y, P)
+                    let b := addmod(x, y, P)
+                    b := addmod(mulmod(b, b, P), sub(P, addmod(c, d, P)), P)
+                    c := mulmod(A, c, P)
+                    let f := addmod(c, d, P)
+                    let j := addmod(f, sub(P, mulmod(2, mulmod(z, z, P), P)), P)
+                    x := mulmod(b, j, P)
+                    y := mulmod(f, addmod(c, sub(P, d), P), P)
+                    z := mulmod(f, j, P)
+                }
+                if and(k, bit) {
+                    let c := mulmod(x, px, P)
+                    let d := mulmod(y, py, P)
+                    let t := addmod(mulmod(addmod(x, y, P), addmod(px, py, P), P), sub(P, addmod(c, d, P)), P)
+                    let u := addmod(d, sub(P, mulmod(A, c, P)), P)
+                    d := mulmod(mulmod(D, c, P), d, P)
+                    c := mulmod(z, z, P)
+                    let f := addmod(c, sub(P, d), P)
+                    let g := addmod(c, d, P)
+                    x := mulmod(mulmod(z, f, P), t, P)
+                    y := mulmod(mulmod(z, g, P), u, P)
+                    z := mulmod(f, g, P)
+                }
+            }
+        }
+        return ProjectivePoint(x, y, z);
+    }
+
+    /// @notice k1·p1 + k2·p2 with Straus' trick (shared doublings, table {p1, p2, p1+p2}).
     function projMul2(Point memory p1, uint256 k1, Point memory p2, uint256 k2)
         internal
         view
         returns (ProjectivePoint memory r)
     {
-        r = ProjectivePoint(0, 1, 1);
         if (k1 == 0) return projMul(p2, k2);
         if (k2 == 0) return projMul(p1, k1);
         Point memory p3 = add(p1, p2);
-        uint256 bit = 1 << 255;
-        while (bit & (k1 | k2) == 0) bit >>= 1;
-        bool started;
-        while (bit != 0) {
-            if (started) doubleInPlace(r);
-            uint256 idx = (k1 & bit != 0 ? 1 : 0) | (k2 & bit != 0 ? 2 : 0);
-            if (idx == 1) addAffineInPlace(r, p1.x, p1.y);
-            else if (idx == 2) addAffineInPlace(r, p2.x, p2.y);
-            else if (idx == 3) addAffineInPlace(r, p3.x, p3.y);
-            started = true;
-            bit >>= 1;
+        uint256[6] memory table = [p1.x, p1.y, p2.x, p2.y, p3.x, p3.y];
+        uint256 x;
+        uint256 y = 1;
+        uint256 z = 1;
+        assembly ("memory-safe") {
+            let bit := shl(255, 1)
+            let ks := or(k1, k2)
+            for {} iszero(and(bit, ks)) {} { bit := shr(1, bit) }
+            for {} bit { bit := shr(1, bit) } {
+                {
+                    let c := mulmod(x, x, P)
+                    let d := mulmod(y, y, P)
+                    let b := addmod(x, y, P)
+                    b := addmod(mulmod(b, b, P), sub(P, addmod(c, d, P)), P)
+                    c := mulmod(A, c, P)
+                    let f := addmod(c, d, P)
+                    let j := addmod(f, sub(P, mulmod(2, mulmod(z, z, P), P)), P)
+                    x := mulmod(b, j, P)
+                    y := mulmod(f, addmod(c, sub(P, d), P), P)
+                    z := mulmod(f, j, P)
+                }
+                let sel := or(iszero(iszero(and(k1, bit))), shl(1, iszero(iszero(and(k2, bit)))))
+                if sel {
+                    let ptr := add(table, mul(sub(sel, 1), 0x40))
+                    let qx := mload(ptr)
+                    let qy := mload(add(ptr, 0x20))
+                    let c := mulmod(x, qx, P)
+                    let d := mulmod(y, qy, P)
+                    let t := addmod(mulmod(addmod(x, y, P), addmod(qx, qy, P), P), sub(P, addmod(c, d, P)), P)
+                    qy := addmod(d, sub(P, mulmod(A, c, P)), P)
+                    d := mulmod(mulmod(D, c, P), d, P)
+                    c := mulmod(z, z, P)
+                    qx := addmod(c, sub(P, d), P)
+                    d := addmod(c, d, P)
+                    x := mulmod(mulmod(z, qx, P), t, P)
+                    y := mulmod(mulmod(z, d, P), qy, P)
+                    z := mulmod(qx, d, P)
+                }
+            }
         }
+        r = ProjectivePoint(x, y, z);
     }
 
     // ------------------------------------------------------------------------------------------
