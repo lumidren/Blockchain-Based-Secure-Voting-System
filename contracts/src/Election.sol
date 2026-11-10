@@ -208,7 +208,6 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
         Status memory s = _status;
         if (s.phase == Phase.Setup) {
             if (block.timestamp < s.registrationStart) revert TooEarly(s.registrationStart);
-            if (coordinator.trusteeCount(electionId) < coordinator.threshold(electionId)) revert DkgNotFinalized();
             _status.phase = Phase.Registration;
             emit PhaseAdvanced(Phase.Setup, Phase.Registration, block.timestamp);
             factory.onElectionActivated(electionId);
@@ -252,19 +251,21 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
      */
     function abort(string calldata reason) external nonReentrant {
         Phase from = _status.phase;
-        bool allowed;
-        if ((from == Phase.Setup || from == Phase.Registration) && msg.sender == admin) {
-            allowed = true;
-        } else if (from == Phase.Registration && block.timestamp >= _status.votingStart && !coordinator.isFinalized(electionId)) {
-            allowed = true;
-        } else if (from == Phase.Tallying && block.timestamp >= _timing.tallyDeadline) {
-            allowed = true;
-        }
-        if (!allowed) revert CannotAbort();
+        if (!_abortAllowed(from)) revert CannotAbort();
         _status.phase = Phase.Aborted;
         emit ElectionAborted(msg.sender, from, reason);
         emit PhaseAdvanced(from, Phase.Aborted, block.timestamp);
         if (from != Phase.Setup) factory.onElectionClosed(electionId);
+    }
+
+    function _abortAllowed(Phase from) internal view returns (bool) {
+        if (from == Phase.Setup) return msg.sender == admin;
+        if (from == Phase.Registration) {
+            if (msg.sender == admin) return true;
+            return block.timestamp >= _status.votingStart && !coordinator.isFinalized(electionId);
+        }
+        if (from == Phase.Tallying) return block.timestamp >= _timing.tallyDeadline;
+        return false;
     }
 
     // ------------------------------------------------------------------------------------------
