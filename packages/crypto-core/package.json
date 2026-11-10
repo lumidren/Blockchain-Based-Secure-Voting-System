@@ -12,12 +12,15 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "vectors": "tsx scripts/gen-vectors.ts"
   },
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
@@ -28,6 +31,7 @@
   "devDependencies": {
     "@types/node": "^24.10.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "tsx": "^4.20.6"
   }
 }
