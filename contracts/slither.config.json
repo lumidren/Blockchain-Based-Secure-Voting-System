@@ -1,0 +1,8 @@
+{
+  "filter_paths": "lib/|test/|script/|src/verifiers/",
+  "exclude_informational": false,
+  "exclude_low": false,
+  "fail_on": "medium",
+  "compile_force_framework": "foundry",
+  "foundry_compile_all": false
+}

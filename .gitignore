@@ -39,3 +39,4 @@ load-test/results/*.jsonl
 # terraform
 infra/terraform/.terraform/
 infra/terraform/*.tfstate*
+contracts/slither-report.json
