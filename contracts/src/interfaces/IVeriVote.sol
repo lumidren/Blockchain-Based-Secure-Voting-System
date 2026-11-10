@@ -27,7 +27,7 @@ struct ElectionParams {
 interface IVeriVoteFactory {
     event ElectionCreated(uint256 indexed electionId, address indexed election, address indexed admin, uint8 slots);
     event VerifierSet(uint8 indexed slots, address verifier, uint16 numSignals);
-    event ElectionImplementationSet(address implementation);
+    event ElectionImplementationSet(address indexed implementation);
     event ElectionActivated(uint256 indexed electionId, uint256 activeElections);
     event ElectionClosed(uint256 indexed electionId, uint256 activeElections);
 
@@ -99,9 +99,9 @@ interface ITrusteeCoordinator {
     function initElection(
         uint256 electionId,
         address election,
-        address[] calldata trustees,
-        uint8 threshold,
-        uint64[6] calldata schedule
+        address[] calldata trusteeList,
+        uint8 quorum,
+        uint64[6] calldata timeline
     ) external;
     function publicKey(uint256 electionId) external view returns (BabyJubJub.Point memory);
     function isFinalized(uint256 electionId) external view returns (bool);

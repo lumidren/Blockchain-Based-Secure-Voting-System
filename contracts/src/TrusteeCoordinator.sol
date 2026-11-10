@@ -114,30 +114,30 @@ contract TrusteeCoordinator is ITrusteeCoordinator, Initializable, UUPSUpgradeab
     // Setup
     // ------------------------------------------------------------------------------------------
 
-    function initElection(uint256 electionId, address election, address[] calldata trustees, uint8 t, uint64[6] calldata schedule)
+    function initElection(uint256 electionId, address election, address[] calldata trusteeList, uint8 t, uint64[6] calldata timeline)
         external
     {
         if (msg.sender != address(factory)) revert NotFactory();
         Dkg storage d = _dkgs[electionId];
         if (d.election != address(0)) revert AlreadyRegistered();
-        uint256 n = trustees.length;
+        uint256 n = trusteeList.length;
         if (n > MAX_TRUSTEES) revert TooManyTrustees();
         if (t < 2 || t > n) revert InvalidThreshold();
         for (uint256 i = 1; i < 6; i++) {
-            if (schedule[i] <= schedule[i - 1]) revert InvalidSchedule();
+            if (timeline[i] <= timeline[i - 1]) revert InvalidSchedule();
         }
-        if (schedule[0] <= block.timestamp) revert InvalidSchedule();
+        if (timeline[0] <= block.timestamp) revert InvalidSchedule();
         d.election = election;
         d.n = uint8(n);
         d.t = t;
-        d.schedule = schedule;
+        d.schedule = timeline;
         for (uint256 i = 0; i < n; i++) {
-            address tr = trustees[i];
+            address tr = trusteeList[i];
             if (tr == address(0) || _trusteeIndex[electionId][tr] != 0) revert DuplicateTrustee();
             _trusteeIndex[electionId][tr] = uint8(i + 1);
             d.trustees.push(tr);
         }
-        emit ElectionRegistered(electionId, election, trustees, t);
+        emit ElectionRegistered(electionId, election, trusteeList, t);
     }
 
     // ------------------------------------------------------------------------------------------
@@ -270,7 +270,7 @@ contract TrusteeCoordinator is ITrusteeCoordinator, Initializable, UUPSUpgradeab
         if (block.timestamp <= d.schedule[5]) revert WindowNotOpen(6);
         if (d.finalized) revert AlreadyFinalized();
         if (d.failed) revert Failed();
-        uint8 qual;
+        uint8 qual = 0;
         for (uint8 i = 1; i <= d.n; i++) {
             Dealer storage dl = _dealers[electionId][i];
             if (!_isQualified(dl)) continue;

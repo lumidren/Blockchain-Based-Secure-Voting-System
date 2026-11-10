@@ -87,6 +87,9 @@ contract VeriVoteFactory is IVeriVoteFactory, Initializable, UUPSUpgradeable, Ac
     }
 
     /// @notice Creates an election proxy and registers it with every module.
+    /// @dev The only external call before the writes is the constructor of our own ERC1967 proxy running
+    ///      Election.initialize, which calls back only view functions; no reentrancy path exists.
+    // slither-disable-next-line reentrancy-benign,reentrancy-events
     function createElection(ElectionParams calldata p) external returns (uint256 electionId, address election) {
         VerifierInfo memory v = _validate(p);
         uint256 index = ++electionCount;
@@ -94,8 +97,8 @@ contract VeriVoteFactory is IVeriVoteFactory, Initializable, UUPSUpgradeable, Ac
         election = _deployElection(p, v, electionId);
         _elections[electionId] = election;
         electionIdAt[index] = electionId;
-        _registerModules(p, electionId, election);
         emit ElectionCreated(electionId, election, p.admin, p.slots);
+        _registerModules(p, electionId, election);
     }
 
     function _validate(ElectionParams calldata p) internal view returns (VerifierInfo memory v) {
@@ -114,21 +117,22 @@ contract VeriVoteFactory is IVeriVoteFactory, Initializable, UUPSUpgradeable, Ac
     }
 
     function _deployElection(ElectionParams calldata p, VerifierInfo memory v, uint256 electionId) internal returns (address) {
-        Election.InitArgs memory args;
-        args.electionId = electionId;
-        args.admin = p.admin;
-        args.title = p.title;
-        args.metadataURI = p.metadataURI;
-        args.candidates = p.candidates;
-        args.slots = p.slots;
-        args.allowRevote = p.allowRevote;
-        args.registrationStart = p.registrationStart;
-        args.votingStart = p.votingStart;
-        args.votingEnd = p.votingEnd;
-        args.tallyDeadline = p.tallyDeadline;
-        args.verifier = v.verifier;
-        args.verifierSelector = v.selector;
-        args.numSignals = v.numSignals;
+        Election.InitArgs memory args = Election.InitArgs({
+            electionId: electionId,
+            admin: p.admin,
+            title: p.title,
+            metadataURI: p.metadataURI,
+            candidates: p.candidates,
+            slots: p.slots,
+            allowRevote: p.allowRevote,
+            registrationStart: p.registrationStart,
+            votingStart: p.votingStart,
+            votingEnd: p.votingEnd,
+            tallyDeadline: p.tallyDeadline,
+            verifier: v.verifier,
+            verifierSelector: v.selector,
+            numSignals: v.numSignals
+        });
         return address(new ERC1967Proxy(electionImplementation, abi.encodeCall(Election.initialize, (args))));
     }
 

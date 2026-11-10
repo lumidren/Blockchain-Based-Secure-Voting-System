@@ -278,7 +278,7 @@ contract Tally is ITally, Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     function _finalizeElection(uint256 electionId, ElectionTally storage t) internal {
         IElection election = IElection(t.election);
         uint32 ballots = election.ballotCount();
-        uint256 sum;
+        uint256 sum = 0;
         for (uint256 i = 0; i < t.counts.length; i++) sum += t.counts[i];
         if (sum != ballots) revert CountSumMismatch(sum, ballots);
         t.finalized = true;
