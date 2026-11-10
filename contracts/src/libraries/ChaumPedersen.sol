@@ -51,8 +51,7 @@ library ChaumPedersen {
         if (!BabyJubJub.isOnCurve(proof.a) || !BabyJubJub.isOnCurve(proof.b)) return false;
         if (!BabyJubJub.inSubgroup(d)) return false;
         uint256 e = challenge(electionId, slot, s, c1, d, proof.a, proof.b);
-        uint256 negE = BabyJubJub.L - e; // e != 0 with overwhelming probability; L − 0 = L ≡ 0 is handled by projMul2
-        if (negE == BabyJubJub.L) negE = 0;
+        uint256 negE = (BabyJubJub.L - e) % BabyJubJub.L; // −e mod L (e = 0 maps to 0)
         BabyJubJub.ProjectivePoint memory r1 = BabyJubJub.projMul2(BabyJubJub.generator(), proof.z, s, negE);
         if (!BabyJubJub.projEqualsAffine(r1, proof.a)) return false;
         BabyJubJub.ProjectivePoint memory r2 = BabyJubJub.projMul2(c1, proof.z, d, negE);

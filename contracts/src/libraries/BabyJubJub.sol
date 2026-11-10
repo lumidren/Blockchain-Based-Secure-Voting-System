@@ -30,7 +30,6 @@ library BabyJubJub {
         uint256 Z;
     }
 
-    error NotOnCurve();
     error NotInSubgroup();
     error ScalarOutOfRange();
     error ZeroInverse();
@@ -73,10 +72,6 @@ library BabyJubJub {
         uint256 lhs = addmod(mulmod(A, xx, P), yy, P);
         uint256 rhs = addmod(1, mulmod(mulmod(D, xx, P), yy, P), P);
         return lhs == rhs;
-    }
-
-    function requireOnCurve(Point memory p) internal pure {
-        if (!isOnCurve(p)) revert NotOnCurve();
     }
 
     /// @notice True when p is on the curve and L·p = O (prime-order subgroup).
@@ -281,10 +276,6 @@ library BabyJubJub {
         ProjectivePoint memory r = ProjectivePoint(p.x, p.y, 1);
         addAffineInPlace(r, q.x, q.y);
         return toAffine(r);
-    }
-
-    function sub(Point memory p, Point memory q) internal view returns (Point memory) {
-        return add(p, negate(q));
     }
 
     function mul(Point memory p, uint256 k) internal view returns (Point memory) {

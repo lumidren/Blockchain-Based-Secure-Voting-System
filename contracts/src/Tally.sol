@@ -54,7 +54,6 @@ contract Tally is ITally, Initializable, UUPSUpgradeable, ReentrancyGuardTransie
     error UnknownBallot(uint256 nullifier);
     error BallotHashMismatch(uint256 nullifier);
     error WrongCiphertextLength();
-    error CoordinateOutOfField();
     error NotAllAggregated(uint32 aggregated, uint32 expected);
     error AlreadyNormalized();
     error NotNormalized();
@@ -161,7 +160,8 @@ contract Tally is ITally, Initializable, UUPSUpgradeable, ReentrancyGuardTransie
             uint256 y1 = ct[2 * i + 1];
             uint256 x2 = ct[off + 2 * i];
             uint256 y2 = ct[off + 2 * i + 1];
-            if (x1 >= BabyJubJub.P || y1 >= BabyJubJub.P || x2 >= BabyJubJub.P || y2 >= BabyJubJub.P) revert CoordinateOutOfField();
+            // No range check needed: these words passed the Groth16 verifier as public signals (which rejects
+            // values ≥ P) and the keccak commitment above binds them to exactly those signals.
             BabyJubJub.addAffineInPlace(acc1[i], x1, y1);
             BabyJubJub.addAffineInPlace(acc2[i], x2, y2);
         }
