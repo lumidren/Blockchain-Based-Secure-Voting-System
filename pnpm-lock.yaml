@@ -115,6 +115,62 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.19.2)(tsx@4.23.15)
 
+  tools/load-test:
+    dependencies:
+      '@verivote/audit':
+        specifier: workspace:*
+        version: link:../verivote-audit
+      '@verivote/crypto-core':
+        specifier: workspace:*
+        version: link:../../packages/crypto-core
+      '@verivote/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@verivote/trustee-cli':
+        specifier: workspace:*
+        version: link:../../services/trustee-cli
+      snarkjs:
+        specifier: ^0.7.5
+        version: 0.7.6
+      viem:
+        specifier: ^2.38.0
+        version: 2.57.17(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.0
+        version: 24.19.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.15
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  tools/verivote-audit:
+    dependencies:
+      '@verivote/crypto-core':
+        specifier: workspace:*
+        version: link:../../packages/crypto-core
+      '@verivote/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      commander:
+        specifier: ^14.0.0
+        version: 14.0.3
+      viem:
+        specifier: ^2.38.0
+        version: 2.57.17(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.0
+        version: 24.19.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.19.2)(tsx@4.23.15)
+
 packages:
 
   '@adraffy/ens-normalize@1.11.1':

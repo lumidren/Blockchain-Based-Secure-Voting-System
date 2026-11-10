@@ -1,0 +1,26 @@
+{
+  "name": "@verivote/load-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end election runner: quickstart demo (5 trustees, 100 voters) and the 10,000-voter load test",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "demo": "tsx src/demo.ts",
+    "load": "tsx src/load.ts"
+  },
+  "dependencies": {
+    "@verivote/audit": "workspace:*",
+    "@verivote/crypto-core": "workspace:*",
+    "@verivote/sdk": "workspace:*",
+    "@verivote/trustee-cli": "workspace:*",
+    "viem": "^2.38.0",
+    "snarkjs": "^0.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
