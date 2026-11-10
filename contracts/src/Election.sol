@@ -161,8 +161,8 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
     // Setup-phase configuration (admin only, immutable afterwards)
     // ------------------------------------------------------------------------------------------
 
-    function setCandidates(string[] calldata candidates) external onlyAdmin inPhase(Phase.Setup) {
-        _setCandidates(candidates);
+    function setCandidates(string[] calldata newCandidates) external onlyAdmin inPhase(Phase.Setup) {
+        _setCandidates(newCandidates);
     }
 
     function setSchedule(uint64 registrationStart, uint64 votingStart, uint64 votingEnd, uint64 tallyDeadline)
@@ -179,15 +179,15 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
         emit MetadataSet(newTitle, newMetadataURI);
     }
 
-    function _setCandidates(string[] calldata candidates) internal {
-        if (candidates.length < 2 || candidates.length > _status.slots) revert InvalidCandidates();
+    function _setCandidates(string[] calldata names) internal {
+        if (names.length < 2 || names.length > _status.slots) revert InvalidCandidates();
         delete _candidates;
-        for (uint256 i = 0; i < candidates.length; i++) {
-            if (bytes(candidates[i]).length == 0) revert InvalidCandidates();
-            _candidates.push(candidates[i]);
+        for (uint256 i = 0; i < names.length; i++) {
+            if (bytes(names[i]).length == 0) revert InvalidCandidates();
+            _candidates.push(names[i]);
         }
-        _status.numCandidates = uint8(candidates.length);
-        emit CandidatesSet(candidates);
+        _status.numCandidates = uint8(names.length);
+        emit CandidatesSet(names);
     }
 
     function _setSchedule(uint64 registrationStart, uint64 votingStart, uint64 votingEnd, uint64 tallyDeadline) internal {
@@ -214,14 +214,14 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
         } else if (s.phase == Phase.Registration) {
             if (block.timestamp < s.votingStart) revert TooEarly(s.votingStart);
             if (!coordinator.isFinalized(electionId)) revert DkgNotFinalized();
-            (uint256 root, uint32 leafCount) = registry.currentRoot(electionId);
-            if (leafCount == 0) revert EmptyRoll();
+            (uint256 root, uint32 rollSize) = registry.currentRoot(electionId);
+            if (rollSize == 0) revert EmptyRoll();
             BabyJubJub.Point memory pk = coordinator.publicKey(electionId);
             snapshotRoot = root;
             _snapshotKey = pk;
-            _timing.leafCount = leafCount;
+            _timing.leafCount = rollSize;
             _status.phase = Phase.Voting;
-            emit VotingSnapshot(root, leafCount, pk.x, pk.y);
+            emit VotingSnapshot(root, rollSize, pk.x, pk.y);
             emit PhaseAdvanced(Phase.Registration, Phase.Voting, block.timestamp);
         } else if (s.phase == Phase.Voting) {
             if (block.timestamp < s.votingEnd) revert TooEarly(s.votingEnd);
@@ -276,6 +276,7 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
         if (!factory.isPauser(msg.sender)) revert NotPauser();
         if (_status.paused) revert IsPaused();
         Phase p = _status.phase;
+        // slither-disable-next-line incorrect-equality (enum comparison; Slither flags it only because the function also reads block.timestamp)
         if (p == Phase.Finalized || p == Phase.Aborted) revert WrongPhase(Phase.Voting, p);
         _status.paused = true;
         _timing.pausedAt = uint64(block.timestamp);
@@ -287,17 +288,20 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
         if (!factory.isPauser(msg.sender)) revert NotPauser();
         if (!_status.paused) revert NotPaused();
         uint64 now_ = uint64(block.timestamp);
-        uint64 pausedAt = _timing.pausedAt;
-        uint64 votingExtension;
-        uint64 tallyExtension;
+        uint64 pauseStart = _timing.pausedAt;
+        uint64 votingExtension = 0;
+        uint64 tallyExtension = 0;
         Phase p = _status.phase;
+        // slither-disable-next-line incorrect-equality (enum comparison; Slither flags it only because the function also reads block.timestamp)
         if (p == Phase.Registration || p == Phase.Voting) {
-            uint64 overlapStart = pausedAt > _status.votingStart ? pausedAt : _status.votingStart;
+            uint64 overlapStart = pauseStart > _status.votingStart ? pauseStart : _status.votingStart;
             if (now_ > overlapStart) votingExtension = now_ - overlapStart;
             _status.votingEnd += votingExtension;
             _timing.tallyDeadline += votingExtension;
-        } else if (p == Phase.Tallying) {
-            tallyExtension = now_ - pausedAt;
+        }
+        // slither-disable-next-line incorrect-equality (enum comparison; Slither flags it only because the function also reads block.timestamp)
+        if (p == Phase.Tallying) {
+            tallyExtension = now_ - pauseStart;
             _timing.tallyDeadline += tallyExtension;
         }
         _status.paused = false;
@@ -352,9 +356,18 @@ contract Election is IElection, Initializable, UUPSUpgradeable, ReentrancyGuardT
     {
         bytes memory data =
             abi.encodePacked(verifierSelector, a[0], a[1], b[0][0], b[0][1], b[1][0], b[1][1], c[0], c[1], signals);
-        // Gas is capped: a malformed point makes the pairing precompile fail and consume all gas it is given.
-        (bool ok, bytes memory ret) = verifier.staticcall{gas: VERIFIER_GAS_LIMIT}(data);
-        return ok && ret.length == 32 && abi.decode(ret, (bool));
+        // Gas is capped (a malformed point makes the pairing precompile consume all gas it is given) and only
+        // the first returned word is copied, so the callee cannot return-bomb the caller.
+        address v = verifier;
+        uint256 limit = VERIFIER_GAS_LIMIT;
+        bool ok;
+        uint256 result;
+        assembly ("memory-safe") {
+            ok := staticcall(limit, v, add(data, 0x20), mload(data), 0x00, 0x20)
+            result := mload(0x00)
+            ok := and(ok, eq(returndatasize(), 0x20))
+        }
+        return ok && result == 1;
     }
 
     // ------------------------------------------------------------------------------------------
