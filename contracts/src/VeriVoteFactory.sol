@@ -88,44 +88,54 @@ contract VeriVoteFactory is IVeriVoteFactory, Initializable, UUPSUpgradeable, Ac
 
     /// @notice Creates an election proxy and registers it with every module.
     function createElection(ElectionParams calldata p) external returns (uint256 electionId, address election) {
-        VerifierInfo memory v = _verifiers[p.slots];
+        VerifierInfo memory v = _validate(p);
+        uint256 index = ++electionCount;
+        electionId = uint256(keccak256(abi.encode(block.chainid, address(this), index))) >> 8;
+        election = _deployElection(p, v, electionId);
+        _elections[electionId] = election;
+        electionIdAt[index] = electionId;
+        _registerModules(p, electionId, election);
+        emit ElectionCreated(electionId, election, p.admin, p.slots);
+    }
+
+    function _validate(ElectionParams calldata p) internal view returns (VerifierInfo memory v) {
+        v = _verifiers[p.slots];
         if (v.verifier == address(0)) revert NoVerifierForSlots(p.slots);
         if (v.numSignals != uint16(p.slots) * 4 + 7) revert NoVerifierForSlots(p.slots);
         if (p.candidates.length < 2 || p.candidates.length > p.slots) revert InvalidCandidates();
         if (p.admin == address(0) || p.registrar == address(0)) revert ZeroAddress();
-        if (!(p.registrationStart < p.votingStart && p.votingStart < p.votingEnd && p.votingEnd < p.tallyDeadline)) revert InvalidSchedule();
+        if (!(p.registrationStart < p.votingStart && p.votingStart < p.votingEnd && p.votingEnd < p.tallyDeadline)) {
+            revert InvalidSchedule();
+        }
         if (p.votingStart - p.registrationStart < MIN_REGISTRATION_WINDOW) revert TooShort();
         if (p.votingEnd - p.votingStart < MIN_VOTING_WINDOW) revert TooShort();
         if (p.tallyDeadline - p.votingEnd < MIN_TALLY_WINDOW) revert TooShort();
         if (p.dkgSchedule[5] > p.votingStart) revert InvalidSchedule();
+    }
 
-        uint256 index = ++electionCount;
-        electionId = uint256(keccak256(abi.encode(block.chainid, address(this), index))) >> 8;
+    function _deployElection(ElectionParams calldata p, VerifierInfo memory v, uint256 electionId) internal returns (address) {
+        Election.InitArgs memory args;
+        args.electionId = electionId;
+        args.admin = p.admin;
+        args.title = p.title;
+        args.metadataURI = p.metadataURI;
+        args.candidates = p.candidates;
+        args.slots = p.slots;
+        args.allowRevote = p.allowRevote;
+        args.registrationStart = p.registrationStart;
+        args.votingStart = p.votingStart;
+        args.votingEnd = p.votingEnd;
+        args.tallyDeadline = p.tallyDeadline;
+        args.verifier = v.verifier;
+        args.verifierSelector = v.selector;
+        args.numSignals = v.numSignals;
+        return address(new ERC1967Proxy(electionImplementation, abi.encodeCall(Election.initialize, (args))));
+    }
 
-        Election.InitArgs memory args = Election.InitArgs({
-            electionId: electionId,
-            admin: p.admin,
-            title: p.title,
-            metadataURI: p.metadataURI,
-            candidates: p.candidates,
-            slots: p.slots,
-            allowRevote: p.allowRevote,
-            registrationStart: p.registrationStart,
-            votingStart: p.votingStart,
-            votingEnd: p.votingEnd,
-            tallyDeadline: p.tallyDeadline,
-            verifier: v.verifier,
-            verifierSelector: v.selector,
-            numSignals: v.numSignals
-        });
-        election = address(new ERC1967Proxy(electionImplementation, abi.encodeCall(Election.initialize, (args))));
-        _elections[electionId] = election;
-        electionIdAt[index] = electionId;
-
+    function _registerModules(ElectionParams calldata p, uint256 electionId, address election) internal {
         IVoterRegistry(registry).initElection(electionId, election, p.registrar);
         ITrusteeCoordinator(coordinator).initElection(electionId, election, p.trustees, p.threshold, p.dkgSchedule);
         ITally(tally).initElection(electionId, election, p.slots);
-        emit ElectionCreated(electionId, election, p.admin, p.slots);
     }
 
     // ------------------------------------------------------------------------------------------
