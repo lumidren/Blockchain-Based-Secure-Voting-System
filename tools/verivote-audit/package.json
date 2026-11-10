@@ -1,0 +1,27 @@
+{
+  "name": "@verivote/audit",
+  "version": "0.1.0",
+  "description": "verivote-audit: independently re-verifies a VeriVote election from public chain data and prints PASS/FAIL",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "verivote-audit": "./dist/cli.js" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/bundle-artifacts.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@verivote/crypto-core": "workspace:*",
+    "@verivote/sdk": "workspace:*",
+    "commander": "^14.0.0",
+    "viem": "^2.38.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
