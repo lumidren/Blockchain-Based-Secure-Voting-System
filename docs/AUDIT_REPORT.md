@@ -161,7 +161,7 @@ proxy) are suppressed inline with a justification.
 | Stateful invariant fuzzing | 4 invariants × 48 runs × 24 calls locally (256 × 32 in the `ci` profile): tally equals distinct nullifiers, no nullifier reuse, monotonic phases, pause cannot change results |
 | Property fuzzing | 256 runs each: any tampered signal or proof word is rejected; any pause extends voting exactly; random time travel never skips or reverses a phase |
 | Cross-implementation vectors | Solidity curve, Chaum–Pedersen and Lagrange code checked against the TypeScript reference (`contracts/test/vectors/TestVectors.sol`) |
-| Symbolic execution (Halmos) | Specifications in `contracts/test/formal/PauseHalmos.t.sol`; results in §5 |
+| Symbolic execution (Halmos 0.3.3) | 5 specifications, all PASS for every symbolic input: pause cannot mutate results, pause never shortens voting, re-vote counting, pauser has no other powers, monotonic Voting→Tallying (`contracts/test/formal/RESULTS.md`) |
 | Static analysis (Slither 0.11.6) | 0 High, 0 Medium after fixes; 17 Low (timestamp, calls-loop) acknowledged; 6 Informational (assembly) |
 | Mythril, Aderyn | Configured in CI (`.github/workflows/ci.yml`); not run on the author's machine, so no local results are claimed |
 | Coverage (`forge coverage --ir-minimum`) | 98.9% branches and 100% functions across the reviewed contracts; see §5 for what the remaining lines are |
@@ -173,7 +173,7 @@ as unexecuted are constructor and initializer bodies (creation code is not attri
 assembly in `BabyJubJub` (executed by every curve test but not attributed), and one `return false` the IR
 pipeline folds into the preceding branch. Every Solidity-level branch outside inline assembly is exercised.
 
-Halmos results are recorded in `contracts/test/formal/RESULTS.md` when the specifications are run.
+Halmos results (5/5 PASS, 3.5 s) are recorded in `contracts/test/formal/RESULTS.md`.
 
 ## 6. Recommendations before mainnet
 
