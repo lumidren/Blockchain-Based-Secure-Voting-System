@@ -43,3 +43,4 @@ contracts/slither-report.json
 
 # local chain manifests are regenerated on every Anvil run
 contracts/deployments/local.json
+contracts/broadcast/
